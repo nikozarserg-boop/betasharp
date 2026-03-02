@@ -83,7 +83,7 @@ public struct PipelineStateKey : IEquatable<PipelineStateKey>
         HashCode.Combine(DepthTestEnabled, DepthWriteEnabled, (int)DepthComparison),
         HashCode.Combine(CullEnabled, (int)CullMode, HasVertexColor, HasTexCoord, HasNormal));
 
-    public override bool Equals(object? obj) => obj is PipelineStateKey k && Equals(k);
+    public override readonly bool Equals(object? obj) => obj is PipelineStateKey k && Equals(k);
 
     public static bool operator ==(PipelineStateKey left, PipelineStateKey right)
     {
