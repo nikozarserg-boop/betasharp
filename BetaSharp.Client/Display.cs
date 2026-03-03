@@ -571,6 +571,10 @@ public static unsafe class Display
                 return;
 
             _graphicsDevice?.WaitForIdle();
+
+            Rendering.Core.GLManager.Dispose();
+
+            _swapchain?.Dispose();
             _swapchain = null;
             _graphicsDevice?.Dispose();
             _graphicsDevice = null;

@@ -31,7 +31,8 @@ layout (set = 0, binding = 0) uniform Uniforms {
     vec4 u_FogColor;
 };
 
-layout (set = 1, binding = 0) uniform sampler2D u_Texture0;
+layout (set = 1, binding = 0) uniform texture2D u_Texture0;
+layout (set = 1, binding = 1) uniform sampler u_Texture0Sampler;
 
 layout (location = 0) out vec4 FragColor;
 
@@ -41,7 +42,7 @@ void main()
     vec4 texColor = vec4(1.0);
     if (u_UseTexture != 0)
     {
-        texColor = texture(u_Texture0, v_TexCoord);
+        texColor = texture(sampler2D(u_Texture0, u_Texture0Sampler), v_TexCoord);
     }
     FragColor = finalColor * texColor;
 

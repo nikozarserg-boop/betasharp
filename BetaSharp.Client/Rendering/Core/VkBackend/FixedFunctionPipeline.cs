@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using Silk.NET.OpenGL.Legacy;
 using Vuldrid;
 using Sampler = Vuldrid.Sampler;
+using ResourceSet = Vuldrid.ResourceSet;
+using BetaSharp.Client.Rendering.Core;
 
 namespace BetaSharp.Client.Rendering.Core.VkBackend;
 
@@ -177,6 +179,15 @@ public class FixedFunctionPipeline : IDisposable
             new ResourceSetDescription(TextureLayout, view, sampler));
         _textureResourceSets[key] = rs;
         return rs;
+    }
+
+    public void ClearTextureResourceSets()
+    {
+        foreach (ResourceSet rs in _textureResourceSets.Values)
+        {
+            GPUResourceCollector.Enqueue(rs);
+        }
+        _textureResourceSets.Clear();
     }
 
     public Pipeline GetOrCreatePipeline(PipelineStateKey state)

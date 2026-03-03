@@ -104,4 +104,5 @@ public unsafe interface IGL
     void VertexAttribPointer(uint index, int size, GLEnum type, bool normalized, uint stride, void* pointer);
     void VertexPointer(int size, GLEnum type, uint stride, void* pointer);
     void Viewport(int x, int y, uint width, uint height);
+    void NewFrame();
 }

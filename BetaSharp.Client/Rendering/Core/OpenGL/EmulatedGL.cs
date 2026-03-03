@@ -8,6 +8,7 @@ using PixelFormat = Silk.NET.OpenGL.Legacy.PixelFormat;
 using VkBuffer = Vuldrid.DeviceBuffer;
 using VkDevice = Vuldrid.GraphicsDevice;
 using VkTexture = Vuldrid.Texture;
+using TextureView = Vuldrid.TextureView;
 
 namespace BetaSharp.Client.Rendering.Core.OpenGL;
 
@@ -81,6 +82,7 @@ public unsafe class EmulatedGL : IGL
     // Staging vertex buffer for dynamic draws
     private VkBuffer? _stagingVertexBuffer;
     private uint _stagingVertexBufferSize;
+    private uint _stagingBufferOffset;
 
     // Shader program tracking (stubs for code that creates GL shaders — will be no-ops)
     private uint _nextProgramId = 1;
@@ -396,7 +398,13 @@ public unsafe class EmulatedGL : IGL
     {
         if (_textureRegistry.Remove(texture, out (TextureView View, Vuldrid.Sampler Sampler) entry))
         {
-            entry.View.Dispose();
+            GPUResourceCollector.Enqueue(entry.View.Target);
+            GPUResourceCollector.Enqueue(entry.View);
+            if (entry.Sampler != Pipeline.DefaultSampler)
+            {
+                GPUResourceCollector.Enqueue(entry.Sampler);
+            }
+            Pipeline.ClearTextureResourceSets();
         }
     }
 
@@ -433,14 +441,20 @@ public unsafe class EmulatedGL : IGL
     {
         if (BoundTextureId == 0) return;
 
-        // Create or recreate the texture for this ID
-        if (_textureRegistry.TryGetValue(BoundTextureId, out (TextureView View, Vuldrid.Sampler Sampler) existing))
+        if (_textureRegistry.Remove(BoundTextureId, out (TextureView View, Vuldrid.Sampler Sampler) existing))
         {
-            existing.View.Dispose();
+            GPUResourceCollector.Enqueue(existing.View.Target);
+            GPUResourceCollector.Enqueue(existing.View);
+
+            if (existing.Sampler != Pipeline.DefaultSampler)
+            {
+                GPUResourceCollector.Enqueue(existing.Sampler);
+            }
+
+            Pipeline.ClearTextureResourceSets();
         }
 
         uint mipLevels = (uint)(level + 1);
-        // If level 0, calculate max mip levels for future uploads
         if (level == 0)
         {
             mipLevels = 1 + (uint)Math.Floor(Math.Log2(Math.Max(width, height)));
@@ -494,8 +508,31 @@ public unsafe class EmulatedGL : IGL
     /// Register an externally created Vuldrid TextureView + Sampler for a texture ID.
     /// Used by GLTexture when it creates textures directly.
     /// </summary>
-    public void RegisterTexture(uint id, global::Vuldrid.TextureView view, global::Vuldrid.Sampler sampler)
+    public void RegisterTexture(uint id, TextureView view, Vuldrid.Sampler sampler)
     {
+        if (_textureRegistry.TryGetValue(id, out (TextureView View, Vuldrid.Sampler Sampler) existing))
+        {
+            if (existing.View == view && existing.Sampler == sampler) return;
+            bool invalidated = false;
+
+            if (existing.View != view)
+            {
+                GPUResourceCollector.Enqueue(existing.View.Target);
+                GPUResourceCollector.Enqueue(existing.View);
+                invalidated = true;
+            }
+
+            if (existing.Sampler != sampler && existing.Sampler != Pipeline.DefaultSampler)
+            {
+                GPUResourceCollector.Enqueue(existing.Sampler);
+                invalidated = true;
+            }
+
+            if (invalidated)
+            {
+                Pipeline.ClearTextureResourceSets();
+            }
+        }
         _textureRegistry[id] = (view, sampler);
     }
 
@@ -533,21 +570,13 @@ public unsafe class EmulatedGL : IGL
         if (_boundArrayBuffer == 0) return;
 
         uint size = (uint)(data.Length * sizeof(T0));
+
+        // Always rotate the buffer when BufferData is called to avoid overwriting 
+        // a buffer that might still be in use by a pending Draw call in the CommandList.
         if (_bufferRegistry.TryGetValue(_boundArrayBuffer, out VkBuffer? existing))
         {
-            if (existing.SizeInBytes < size)
-            {
-                existing.Dispose();
-                _bufferRegistry.Remove(_boundArrayBuffer);
-            }
-            else
-            {
-                fixed (T0* ptr = data)
-                {
-                    _device.UpdateBuffer(existing, 0, (IntPtr)ptr, size);
-                }
-                return;
-            }
+            GPUResourceCollector.Enqueue(existing);
+            _bufferRegistry.Remove(_boundArrayBuffer);
         }
 
         VkBuffer buffer = _device.ResourceFactory.CreateBuffer(new BufferDescription(
@@ -563,9 +592,10 @@ public unsafe class EmulatedGL : IGL
     {
         if (_boundArrayBuffer == 0) return;
 
+        // Always rotate for safety
         if (_bufferRegistry.TryGetValue(_boundArrayBuffer, out VkBuffer? existing))
         {
-            existing.Dispose();
+            GPUResourceCollector.Enqueue(existing);
             _bufferRegistry.Remove(_boundArrayBuffer);
         }
 
@@ -695,32 +725,46 @@ public unsafe class EmulatedGL : IGL
 
         uint requiredSize = (uint)vertexData.Length;
 
-        // Resize staging buffer if needed
+        // Ensure we have a large enough staging buffer.
+        const uint DEFAULT_STAGING_SIZE = 2 * 1024 * 1024;
+
         if (_stagingVertexBuffer == null || _stagingVertexBufferSize < requiredSize)
         {
-            _stagingVertexBuffer?.Dispose();
-            _stagingVertexBufferSize = Math.Max(requiredSize, 65536); // At least 64KB
+            if (_stagingVertexBuffer != null) GPUResourceCollector.Enqueue(_stagingVertexBuffer);
+
+            _stagingVertexBufferSize = Math.Max(requiredSize, DEFAULT_STAGING_SIZE);
             _stagingVertexBuffer = _device.ResourceFactory.CreateBuffer(new BufferDescription(
                 _stagingVertexBufferSize,
                 BufferUsage.VertexBuffer | BufferUsage.Dynamic));
+            _stagingBufferOffset = 0;
+        }
+
+        if (_stagingBufferOffset + requiredSize > _stagingVertexBufferSize)
+        {
+            _stagingBufferOffset = 0;
         }
 
         fixed (byte* ptr = vertexData)
         {
-            GLManager.CommandList.UpdateBuffer(_stagingVertexBuffer, 0, (IntPtr)ptr, requiredSize);
+            _device.UpdateBuffer(_stagingVertexBuffer, _stagingBufferOffset, (IntPtr)ptr, requiredSize);
         }
 
-        DrawWithBuffer(mode, _stagingVertexBuffer, vertexCount);
+        DrawWithBuffer(mode, _stagingVertexBuffer, vertexCount, _stagingBufferOffset / 32);
+
+        _stagingBufferOffset += requiredSize;
+    }
+
+    public void NewFrame()
+    {
+        _stagingBufferOffset = 0;
     }
 
     private void FlushState()
     {
-        // Update uniform buffer with current state
         _uniforms.ModelView = _modelViewStack.Current;
         _uniforms.Projection = _projectionStack.Current;
         _uniforms.TextureMatrix = _textureStack.Current;
 
-        // Compute normal matrix (inverse transpose of upper-left 3x3 of modelview)
         Matrix4x4.Invert(_modelViewStack.Current, out Matrix4x4 invMV);
         Matrix4x4 normalMat = Matrix4x4.Transpose(invMV);
         _uniforms.NormalMatrixRow0 = new Vector4(normalMat.M11, normalMat.M12, normalMat.M13, 0);
@@ -777,7 +821,6 @@ public unsafe class EmulatedGL : IGL
 
     public void CallLists(uint n, GLEnum type, void* lists)
     {
-        // Used for rendering string characters via display lists
         if (type == GLEnum.Int || type == GLEnum.UnsignedInt)
         {
             int* intLists = (int*)lists;
