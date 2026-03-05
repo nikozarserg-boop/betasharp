@@ -1,6 +1,6 @@
 using BetaSharp;
 
-namespace Beta3D;
+namespace Beta3D.Shaders;
 
 public enum ShaderType
 {

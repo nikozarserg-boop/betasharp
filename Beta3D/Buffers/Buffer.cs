@@ -1,4 +1,4 @@
-namespace Beta3D;
+namespace Beta3D.Buffers;
 
 public abstract class Buffer(Buffer.BufferUsage usage, long size) : IDisposable
 {

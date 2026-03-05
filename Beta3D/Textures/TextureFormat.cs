@@ -1,4 +1,4 @@
-namespace Beta3D;
+namespace Beta3D.Textures;
 
 public enum TextureFormat
 {

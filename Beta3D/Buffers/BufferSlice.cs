@@ -1,4 +1,4 @@
-namespace Beta3D;
+namespace Beta3D.Buffers;
 
 public record struct BufferSlice(Buffer Buffer, long Offset, long Length)
 {
