@@ -374,6 +374,9 @@ FodyWeavers.xsd
 # ImGui configuration file
 imgui.ini
 
+# Build output
+dist/
+
 # Saves and Server Configuration
 *.mcr
 *.dat
