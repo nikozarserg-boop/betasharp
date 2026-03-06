@@ -393,6 +393,7 @@ white-list.txt
 # Inno Setup
 dist_install/
 *.exe
+*.iss
 
 # macOS
 .DS_Store

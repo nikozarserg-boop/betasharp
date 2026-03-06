@@ -145,7 +145,7 @@ REM Обновляем .iss файл с абсолютным OutputDir и ико
     echo Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 0,6.1
     echo.
     echo [Files]
-    echo Source: "*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+    echo Source: "*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.iss"
     echo.
     echo [Icons]
     echo Name: "{group}\BetaSharp"; Filename: "{app}\BetaSharp.Launcher.exe"; IconFilename: "{app}\logo.ico"
