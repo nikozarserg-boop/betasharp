@@ -70,18 +70,22 @@ if not exist "!INNO_SETUP_PATH!" (
 set "INNO_DIR=!TEMP_DIR!\inno"
 mkdir "!INNO_DIR!"
 
-REM Копируем файлы установки
+REM Копируем файлы установки (исключаем PDB файлы)
 echo   Копирование файлов...
 if exist "dist\BetaSharp.Launcher" (
-    "%POWERSHELL_PATH%" -NoProfile -Command "Copy-Item -Path 'dist\BetaSharp.Launcher\*' -Destination '!INNO_DIR!\' -Recurse -Force" >nul 2>&1
+    "%POWERSHELL_PATH%" -NoProfile -Command "Copy-Item -Path 'dist\BetaSharp.Launcher\*' -Destination '!INNO_DIR!\' -Recurse -Force -Exclude '*.pdb'" >nul 2>&1
 )
 
 if exist "dist\BetaSharp.Client" (
-    "%POWERSHELL_PATH%" -NoProfile -Command "Copy-Item -Path 'dist\BetaSharp.Client\*' -Destination '!INNO_DIR!\Client\' -Recurse -Force" >nul 2>&1
+    "%POWERSHELL_PATH%" -NoProfile -Command "Copy-Item -Path 'dist\BetaSharp.Client\*' -Destination '!INNO_DIR!\Client\' -Recurse -Force -Exclude '*.pdb'" >nul 2>&1
+)
+
+if exist "dist\BetaSharp.Server" (
+    "%POWERSHELL_PATH%" -NoProfile -Command "Copy-Item -Path 'dist\BetaSharp.Server\*' -Destination '!INNO_DIR!\Server\' -Recurse -Force -Exclude '*.pdb'" >nul 2>&1
 )
 
 if exist "dist\jar" (
-    "%POWERSHELL_PATH%" -NoProfile -Command "Copy-Item -Path 'dist\jar\*' -Destination '!INNO_DIR!\jar\' -Recurse -Force" >nul 2>&1
+    "%POWERSHELL_PATH%" -NoProfile -Command "Copy-Item -Path 'dist\jar' -Destination '!INNO_DIR!\' -Recurse -Force" >nul 2>&1
 )
 
 if exist "dist\font" (
@@ -139,17 +143,16 @@ REM Обновляем .iss файл с абсолютным OutputDir и ико
     echo [Languages]
     echo Name: "english"; MessagesFile: "compiler:Default.isl"
     echo Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+    echo Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
     echo.
     echo [Tasks]
-    echo Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+    echo Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
     echo Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 0,6.1
     echo.
     echo [Files]
     echo Source: "*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.iss"
     echo.
     echo [Icons]
-    echo Name: "{group}\BetaSharp"; Filename: "{app}\BetaSharp.Launcher.exe"; IconFilename: "{app}\logo.ico"
-    echo Name: "{group}\{cm:UninstallProgram,BetaSharp}"; Filename: "{uninstallexe}"
     echo Name: "{commondesktop}\BetaSharp"; Filename: "{app}\BetaSharp.Launcher.exe"; IconFilename: "{app}\logo.ico"; Tasks: desktopicon
     echo Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\BetaSharp"; Filename: "{app}\BetaSharp.Launcher.exe"; IconFilename: "{app}\logo.ico"; Tasks: quicklaunchicon
     echo.

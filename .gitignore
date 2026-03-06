@@ -3,9 +3,6 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-# Minecraft JAR file
-b1.7.3.jar
-minecraft.jar
 
 # User-specific files
 *.rsuser
@@ -14,6 +11,7 @@ minecraft.jar
 *.userosscache
 *.sln.docstates
 assets/
+b1.7.3.jar
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -376,9 +374,6 @@ FodyWeavers.xsd
 # ImGui configuration file
 imgui.ini
 
-# Build output
-dist/
-
 # Saves and Server Configuration
 *.mcr
 *.dat
@@ -390,22 +385,6 @@ ops.txt
 server.properties
 white-list.txt
 
-# Inno Setup
+# Build and distribution folders
+dist/
 dist_install/
-*.exe
-*.iss
-
-# macOS
-.DS_Store
-._*
-
-# Linux
-*.swp
-*.swo
-*~
-
-# IDE
-*.code-workspace
-
-# Runtime files
-session.lock
